@@ -177,25 +177,21 @@ class badge {
 
     /**
      * Return array of accepted criteria types for this badge
+     *
      * @return array
      */
     public function get_accepted_criteria() {
         $criteriatypes = array();
+        $allcriteria = award_criteria::get_all_criteria();
 
-        if ($this->type == BADGE_TYPE_COURSE) {
-            $criteriatypes = array(
-                    BADGE_CRITERIA_TYPE_OVERALL,
-                    BADGE_CRITERIA_TYPE_MANUAL,
-                    BADGE_CRITERIA_TYPE_COURSE,
-                    BADGE_CRITERIA_TYPE_ACTIVITY
-            );
-        } else if ($this->type == BADGE_TYPE_SITE) {
-            $criteriatypes = array(
-                    BADGE_CRITERIA_TYPE_OVERALL,
-                    BADGE_CRITERIA_TYPE_MANUAL,
-                    BADGE_CRITERIA_TYPE_COURSESET,
-                    BADGE_CRITERIA_TYPE_PROFILE,
-            );
+        foreach ($allcriteria as $criterianame) {
+            global $CFG;
+            $libfile = $CFG->dirroot . "/badges/criteria/{$criterianame}/lib.php";
+            require_once($libfile);
+            $class = "award_criteria_{$criterianame}";
+            if (in_array($this->type, $class::$supportedtypes)) {
+                $criteriatypes[] = $criterianame;
+            }
         }
 
         return $criteriatypes;
@@ -452,11 +448,11 @@ class badge {
         foreach ($toearn as $uid) {
             $toreview = false;
             foreach ($this->criteria as $crit) {
-                if ($crit->criteriatype != BADGE_CRITERIA_TYPE_OVERALL) {
+                if ($crit->criteriatype != 'overall') {
                     if ($crit->review($uid)) {
                         $crit->mark_complete($uid);
-                        if ($this->criteria[BADGE_CRITERIA_TYPE_OVERALL]->method == BADGE_CRITERIA_AGGREGATION_ANY) {
-                            $this->criteria[BADGE_CRITERIA_TYPE_OVERALL]->mark_complete($uid);
+                        if ($this->criteria['overall']->method == BADGE_CRITERIA_AGGREGATION_ANY) {
+                            $this->criteria['overall']->mark_complete($uid);
                             $this->issue($uid);
                             $awards++;
                             break;
@@ -465,7 +461,7 @@ class badge {
                             continue;
                         }
                     } else {
-                        if ($this->criteria[BADGE_CRITERIA_TYPE_OVERALL]->method == BADGE_CRITERIA_AGGREGATION_ANY) {
+                        if ($this->criteria['overall']->method == BADGE_CRITERIA_AGGREGATION_ANY) {
                             continue;
                         } else {
                             break;
@@ -474,8 +470,8 @@ class badge {
                 }
             }
             // Review overall if it is required.
-            if ($toreview && $this->criteria[BADGE_CRITERIA_TYPE_OVERALL]->review($uid)) {
-                $this->criteria[BADGE_CRITERIA_TYPE_OVERALL]->mark_complete($uid);
+            if ($toreview && $this->criteria['overall']->review($uid)) {
+                $this->criteria['overall']->mark_complete($uid);
                 $this->issue($uid);
                 $awards++;
             }
@@ -587,7 +583,7 @@ class badge {
      */
     public function has_manual_award_criteria() {
         foreach ($this->criteria as $criterion) {
-            if ($criterion->criteriatype == BADGE_CRITERIA_TYPE_MANUAL) {
+            if ($criterion->criteriatype == 'manual') {
                 return true;
             }
         }
@@ -946,8 +942,8 @@ function badges_award_handle_course_criteria_review(stdClass $eventdata) {
                 if ($badge->criteria[$crit->criteriatype]->review($userid)) {
                     $badge->criteria[$crit->criteriatype]->mark_complete($userid);
 
-                    if ($badge->criteria[BADGE_CRITERIA_TYPE_OVERALL]->review($userid)) {
-                        $badge->criteria[BADGE_CRITERIA_TYPE_OVERALL]->mark_complete($userid);
+                    if ($badge->criteria['overall']->review($userid)) {
+                        $badge->criteria['overall']->mark_complete($userid);
                         $badge->issue($userid);
                     }
                 }
@@ -983,11 +979,11 @@ function badges_award_handle_activity_criteria_review(stdClass $eventdata) {
                         continue;
                     }
 
-                    if ($badge->criteria[BADGE_CRITERIA_TYPE_ACTIVITY]->review($userid)) {
-                        $badge->criteria[BADGE_CRITERIA_TYPE_ACTIVITY]->mark_complete($userid);
+                    if ($badge->criteria['activity']->review($userid)) {
+                        $badge->criteria['activity']->mark_complete($userid);
 
-                        if ($badge->criteria[BADGE_CRITERIA_TYPE_OVERALL]->review($userid)) {
-                            $badge->criteria[BADGE_CRITERIA_TYPE_OVERALL]->mark_complete($userid);
+                        if ($badge->criteria['overall']->review($userid)) {
+                            $badge->criteria['overall']->mark_complete($userid);
                             $badge->issue($userid);
                         }
                     }
@@ -1011,18 +1007,18 @@ function badges_award_handle_profile_criteria_review(stdClass $eventdata) {
     if (!empty($CFG->enablebadges)) {
         $userid = $eventdata->id;
 
-        if ($rs = $DB->get_records('badge_criteria', array('criteriatype' => BADGE_CRITERIA_TYPE_PROFILE))) {
+        if ($rs = $DB->get_records('badge_criteria', array('criteriatype' => 'profile'))) {
             foreach ($rs as $r) {
                 $badge = new badge($r->badgeid);
                 if (!$badge->is_active() || $badge->is_issued($userid)) {
                     continue;
                 }
 
-                if ($badge->criteria[BADGE_CRITERIA_TYPE_PROFILE]->review($userid)) {
-                    $badge->criteria[BADGE_CRITERIA_TYPE_PROFILE]->mark_complete($userid);
+                if ($badge->criteria['profile']->review($userid)) {
+                    $badge->criteria['profile']->mark_complete($userid);
 
-                    if ($badge->criteria[BADGE_CRITERIA_TYPE_OVERALL]->review($userid)) {
-                        $badge->criteria[BADGE_CRITERIA_TYPE_OVERALL]->mark_complete($userid);
+                    if ($badge->criteria['profile']->review($userid)) {
+                        $badge->criteria['profile']->mark_complete($userid);
                         $badge->issue($userid);
                     }
                 }
@@ -1051,8 +1047,8 @@ function badges_award_handle_manual_criteria_review(stdClass $data) {
     if ($criteria->review($userid)) {
         $criteria->mark_complete($userid);
 
-        if ($badge->criteria[BADGE_CRITERIA_TYPE_OVERALL]->review($userid)) {
-            $badge->criteria[BADGE_CRITERIA_TYPE_OVERALL]->mark_complete($userid);
+        if ($badge->criteria['overall']->review($userid)) {
+            $badge->criteria['overall']->mark_complete($userid);
             $badge->issue($userid);
         }
     }
